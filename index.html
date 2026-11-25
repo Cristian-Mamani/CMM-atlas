@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-E2M5WXpR1j/37tHjNBUjFJcLcOjJ1uGMDBMY9Zq+93E='; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Atlas Anatómico CMM</title>
+<link rel="stylesheet" href="estilos.css">
+<script type="importmap">
+{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}
+</script>
+</head>
+<body>
+<div id="cmm-raiz">
+  <header id="cmm-cabecera">
+    <div class="cmm-marca">
+      <p class="cmm-sobretitulo">Anatomía interactiva</p>
+      <h1>Atlas Humano <span class="cmm-insignia">3D</span></h1>
+      <p id="cmm-fuente-modelo">BodyParts3D</p>
+    </div>
+    <div class="cmm-accesos">
+      <div class="cmm-buscador">
+        <span class="cmm-lupa" aria-hidden="true"></span>
+        <input id="cmm-busqueda" type="search" placeholder="Buscar estructura" aria-label="Buscar estructura" aria-keyshortcuts="/" autocomplete="off">
+        <kbd>/</kbd>
+        <ul id="cmm-resultados" class="cmm-oculto"></ul>
+      </div>
+      <button id="cmm-builder-abrir" class="cmm-panel" disabled>Anatomy Builder</button>
+      <button id="cmm-creditos-abrir" class="cmm-redondo" aria-label="Créditos" title="Créditos">i</button>
+    </div>
+  </header>
+
+  <aside id="cmm-sistemas" class="cmm-panel" aria-labelledby="cmm-titulo-sistemas">
+    <div class="cmm-cabecera-sistemas">
+      <h2 id="cmm-titulo-sistemas">Sistemas</h2>
+      <span id="cmm-total-sistemas" class="cmm-contador"></span>
+    </div>
+    <div class="cmm-fila-botones" role="group" aria-label="Visibilidad por grupo">
+      <button data-cmm-preset="todo" aria-pressed="false">Todo</button>
+      <button data-cmm-preset="esqueleto" aria-pressed="false">Esqueleto</button>
+      <button data-cmm-preset="organos" aria-pressed="false">Órganos</button>
+    </div>
+    <div id="cmm-lista-sistemas"></div>
+    <div class="cmm-pie-sistemas">
+      <span id="cmm-piezas-visibles" aria-live="polite"></span>
+      <button id="cmm-ocultar-todo" class="cmm-enlace" data-cmm-preset="ninguno">Ocultar todo</button>
+    </div>
+  </aside>
+
+  <button id="cmm-herramientas-abrir" class="cmm-panel" aria-expanded="false" aria-controls="cmm-lateral"><span aria-hidden="true">⚙</span> Herramientas</button>
+  <button id="cmm-reiniciar-todo" class="cmm-panel" title="Volver todo al estado inicial"><span aria-hidden="true">↺</span> Reiniciar todo</button>
+  <aside id="cmm-lateral" class="cmm-panel cmm-oculto" aria-label="Herramientas del atlas">
+    <div class="cmm-cabecera-herramientas">
+      <h2>Herramientas</h2>
+      <button id="cmm-herramientas-cerrar" class="cmm-enlace" aria-label="Cerrar herramientas">×</button>
+    </div>
+    <nav id="cmm-pestanas" aria-label="Secciones de herramientas">
+      <button class="cmm-pestana cmm-activa" data-cmm-pestana="herramientas" aria-pressed="true">Visor</button>
+      <button class="cmm-pestana" data-cmm-pestana="estudio" aria-pressed="false">Estudio</button>
+      <button class="cmm-pestana" data-cmm-pestana="vistas" aria-pressed="false">Vistas</button>
+    </nav>
+
+    <section class="cmm-seccion cmm-visible" data-cmm-seccion="herramientas">
+      <h3>Regiones</h3>
+      <div id="cmm-lista-regiones" class="cmm-rejilla"></div>
+      <label><input id="cmm-mapa-dominio" type="checkbox"> Mostrar dominio de las estructuras</label>
+      <p id="cmm-leyenda-dominio" hidden>Verde: dominada. Ámbar: en práctica. Gris: pendiente. Los colores representan progreso de aprendizaje en el atlas.</p>
+      <h3>Modo rayos X</h3>
+      <label class="cmm-interruptor"><input type="checkbox" id="cmm-rx-activo"><span>Transparentar huesos y músculos</span></label>
+      <label class="cmm-control"><span>Transparencia</span><input type="range" id="cmm-rx-nivel" min="4" max="60" value="16"></label>
+
+      <h3>Explosión por sistema</h3>
+      <label class="cmm-control cmm-control-explosion"><span>Sistema</span><select id="cmm-ex-sistema"></select></label>
+      <div class="cmm-fila-rango">
+        <label class="cmm-control"><span>Separación</span><input type="range" id="cmm-ex-valor-panel" min="0" max="100" value="0"></label>
+        <output id="cmm-ex-porcentaje-panel" for="cmm-ex-valor-panel">0 %</output>
+      </div>
+      <p id="cmm-explosion-aviso" role="status"></p>
+
+      <h3>Contexto anatómico</h3>
+      <label class="cmm-interruptor"><input type="checkbox" id="cmm-ctx-activo"><span>Resaltar vecinos de la selección</span></label>
+
+      <h3>Etiquetas flotantes</h3>
+      <label class="cmm-interruptor"><input type="checkbox" id="cmm-et-activo"><span>Mostrar etiquetas</span></label>
+      <label class="cmm-control"><span>En la vista 3D</span><input type="range" id="cmm-et-cantidad" min="4" max="40" value="14"></label>
+      <button id="cmm-et-lamina-abrir" class="cmm-boton-suave" aria-haspopup="dialog">Ver todas las etiquetas</button>
+
+      <h3>Cortes anatómicos</h3>
+      <label class="cmm-control"><span>Plano</span>
+        <select id="cmm-corte-eje">
+          <option value="ninguno">Ninguno</option>
+          <option value="transversal">Transversal</option>
+          <option value="sagital">Sagital</option>
+          <option value="coronal">Coronal</option>
+        </select>
+      </label>
+      <div class="cmm-fila-rango">
+        <label class="cmm-control"><span>Posición</span><input id="cmm-corte-posicion" type="range" min="0" max="100" value="50" disabled></label>
+        <output id="cmm-corte-porcentaje" for="cmm-corte-posicion">50 %</output>
+      </div>
+      <label class="cmm-interruptor"><input id="cmm-corte-invertido" type="checkbox" role="switch" disabled><span>Invertir lado</span></label>
+      <button id="cmm-corte-quitar" class="cmm-boton-suave" disabled>Quitar corte</button>
+    </section>
+
+    <section class="cmm-seccion" data-cmm-seccion="estudio">
+      <h3>Juego por niveles</h3>
+      <div id="cmm-niveles-lista" class="cmm-niveles"></div>
+
+      <h3>Examen sobre el cuerpo 3D</h3>
+      <label class="cmm-control"><span>Tipo</span>
+        <select id="cmm-exa-modo">
+          <option value="nombrar">¿Cómo se llama esta estructura?</option>
+          <option value="encontrar">Encuentra la estructura</option>
+        </select>
+      </label>
+      <label class="cmm-control"><span>Contenido</span>
+        <select id="cmm-exa-categoria">
+          <option value="huesos">Huesos</option>
+          <option value="musculos">Músculos</option>
+          <option value="organos">Órganos</option>
+          <option value="nervios">Sistema nervioso</option>
+          <option value="todo">Huesos, músculos, nervios y órganos</option>
+        </select>
+      </label>
+      <label class="cmm-control"><span>Preguntas</span>
+        <select id="cmm-exa-total"><option>5</option><option selected>10</option><option>20</option></select>
+      </label>
+      <button id="cmm-exa-iniciar" class="cmm-boton-principal">Comenzar examen</button>
+
+      <h3>Tarjetas de estudio</h3>
+      <label class="cmm-control"><span>Mazo</span><select id="cmm-tar-mazo"></select></label>
+      <button id="cmm-tar-iniciar" class="cmm-boton-principal">Abrir tarjetas</button>
+
+    </section>
+
+    <section class="cmm-seccion" data-cmm-seccion="vistas">
+      <h3>Guardar vista actual</h3>
+      <div class="cmm-fila-entrada">
+        <input id="cmm-vi-nombre" type="text" placeholder="Nombre de la vista">
+        <button id="cmm-vi-guardar" class="cmm-boton-principal">Guardar</button>
+      </div>
+      <ul id="cmm-vi-lista" class="cmm-lista-vistas"></ul>
+      <output id="cmm-vi-aviso" class="cmm-vacio" role="status"></output>
+    </section>
+  </aside>
+
+  <main id="cmm-escenario">
+    <div id="cmm-lienzo"></div>
+    <div id="cmm-capa-etiquetas"></div>
+    <div id="cmm-distancia" class="cmm-oculto" role="status"></div>
+    <div id="cmm-sugerencia" class="cmm-oculto"></div>
+    <div id="cmm-pie"><span id="cmm-leyenda-pie">Arrastra para girar · Pellizca o usa la rueda para acercar · Toca para inspeccionar</span></div>
+    <div id="cmm-carga"><div><strong>Preparando la anatomía</strong><span id="cmm-carga-texto">0 %</span><div class="cmm-barra"><i id="cmm-carga-barra"></i></div></div></div>
+  </main>
+
+  <nav id="cmm-camara" class="cmm-panel" aria-label="Cámara">
+    <button data-cmm-vista="tres" aria-label="Vista de tres cuartos" title="Tres cuartos">3/4</button>
+    <button data-cmm-vista="frente" aria-label="Vista frontal" title="Frontal">F</button>
+    <button data-cmm-vista="lado" aria-label="Vista lateral" title="Lateral">L</button>
+    <button data-cmm-vista="espalda" aria-label="Vista posterior" title="Posterior">P</button>
+    <button id="cmm-giro" aria-label="Giro automático" aria-pressed="false" title="Giro automático">⟳</button>
+    <button id="cmm-camara-reiniciar" aria-label="Reiniciar cámara" title="Reiniciar cámara">⌂</button>
+    <div class="cmm-medir-controles">
+      <button id="cmm-medir" aria-pressed="false" aria-describedby="cmm-medir-aviso">Medir</button>
+      <button id="cmm-medir-limpiar" class="cmm-oculto" aria-label="Limpiar medición" title="Limpiar medición" disabled>×</button>
+    </div>
+  </nav>
+
+  <p id="cmm-medir-aviso" class="cmm-panel cmm-oculto" role="status">Mide sobre la superficie visible; con piezas separadas la medida no es anatómica</p>
+
+  <section id="cmm-separar" class="cmm-panel" aria-labelledby="cmm-titulo-separar">
+    <div class="cmm-cabecera-separar">
+      <div>
+        <p class="cmm-sobretitulo">Adulto humano · Varón</p>
+        <h2 id="cmm-titulo-separar">Separar anatomía</h2>
+      </div>
+      <button id="cmm-ex-restablecer" class="cmm-enlace">Restablecer</button>
+    </div>
+    <div class="cmm-fila-separar">
+      <span>Ensamblado</span>
+      <input type="range" id="cmm-ex-valor" min="0" max="100" value="0" aria-labelledby="cmm-titulo-separar">
+      <span>Cada pieza</span>
+      <output id="cmm-ex-porcentaje" for="cmm-ex-valor">0 %</output>
+    </div>
+  </section>
+
+  <aside id="cmm-derecha" class="cmm-panel cmm-oculto" aria-label="Detalle y estudio">
+    <section id="cmm-detalle" class="cmm-oculto"></section>
+    <section id="cmm-examen" class="cmm-oculto"></section>
+    <section id="cmm-tarjetas" class="cmm-oculto"></section>
+  </aside>
+</div>
+
+<dialog id="cmm-et-lamina" aria-labelledby="cmm-et-lamina-titulo">
+  <header class="cmm-et-lamina-cabecera">
+    <div>
+      <h2 id="cmm-et-lamina-titulo">Lámina de etiquetas</h2>
+      <output id="cmm-et-lamina-total" aria-live="polite"></output>
+    </div>
+    <button id="cmm-et-lamina-cerrar" type="button">Volver al visor 3D</button>
+  </header>
+  <div class="cmm-et-lamina-controles">
+    <label>Sistema <select id="cmm-et-lamina-sistema"><option value="todo">Todos los sistemas</option></select></label>
+    <label>Buscar pieza <input id="cmm-et-lamina-busqueda" type="search" autocomplete="off" placeholder="Nombre o código"></label>
+  </div>
+  <div id="cmm-et-lamina-lista" role="region" aria-label="Piezas y etiquetas" tabindex="0"></div>
+</dialog>
+
+<dialog id="cmm-modal" aria-labelledby="cmm-titulo-creditos">
+  <div class="cmm-modal-caja">
+    <h2 id="cmm-titulo-creditos">Créditos y fuente</h2>
+    <p>Geometría anatómica: BodyParts3D, © The Database Center for Life Science, licencia Creative Commons Attribution 4.0 International.</p>
+    <p>Atlas Anatómico CMM 1.0.0 · Visualización con three.js 0.169.0, licencia MIT.</p>
+    <p>Los nombres en español fueron traducidos para fines educativos. Esta aplicación es una referencia de estudio, no una herramienta de diagnóstico.</p>
+    <p><a href="https://dbarchive.biosciencedbc.jp/en/bodyparts3d/lic.html" target="_blank" rel="noreferrer">Licencia del conjunto de datos</a></p>
+    <details><summary>Datos almacenados en este equipo</summary>
+      <p>Los récords, niveles, monedas, repasos, vistas y misiones docentes se guardan de forma local.</p>
+      <button id="cmm-local-exportar">Exportar datos</button><button id="cmm-local-borrar">Borrar datos locales</button>
+      <p id="cmm-local-aviso" role="status"></p>
+    </details>
+    <button id="cmm-creditos-cerrar" class="cmm-boton-principal">Cerrar</button>
+  </div>
+</dialog>
+
+<dialog id="cmm-builder" aria-labelledby="cmm-builder-titulo">
+  <div class="cmm-builder-marco">
+    <header class="cmm-builder-cabecera">
+      <div><p class="cmm-sobretitulo">Laboratorio de reconstrucción anatómica 3D</p><h2 id="cmm-builder-titulo">Anatomy Builder CMM</h2></div>
+      <div id="cmm-builder-hud" class="cmm-oculto">
+        <strong id="cmm-builder-reto"></strong><span id="cmm-builder-tiempo"></span><span id="cmm-builder-progreso"></span><span id="cmm-builder-puntos"></span><span id="cmm-builder-vidas"></span>
+      </div>
+      <div class="cmm-builder-grupo">
+        <button data-cmm-builder="pausa" class="cmm-oculto">Pausar</button>
+        <button data-cmm-builder="catalogo" class="cmm-oculto">Atrás a desafíos</button>
+        <button data-cmm-builder="salir">Volver al atlas</button>
+      </div>
+    </header>
+    <section id="cmm-builder-inicio" class="cmm-builder-inicio">
+      <div class="cmm-builder-inicio-cabecera">
+        <h3>Desafíos anatómicos</h3>
+        <div class="cmm-builder-ajustes">
+          <label>Modo<select id="cmm-builder-modo"><option value="clasico">Reconstrucción clásica</option><option value="libre">Laboratorio libre</option><option value="detective">Detective anatómico</option><option value="memoria">Memoria espacial</option><option value="diseccion">Disección inversa</option><option value="capas">Reconstrucción por capas</option><option value="cmm-parcial">Reconstrucción parcial</option><option value="cmm-intrusa">Pieza intrusa</option><option value="cmm-espejo">Anatomía espejo</option><option value="cmm-contrarreloj">Contrarreloj</option><option value="cmm-conexiones">Conexiones óseas</option></select></label>
+          <label>Dificultad<select id="cmm-builder-dificultad"><option value="0">Principiante</option><option value="1">Intermedio</option><option value="2">Avanzado</option><option value="3">Experto</option></select></label>
+          <label>Distribución<select id="cmm-builder-layout"><option value="radial">Vista explosionada</option><option value="mesa">Mesa de reconstrucción</option></select></label>
+          <label>Región<select id="cmm-builder-region"><option value="">Todas</option></select></label>
+          <label>Sistema<select id="cmm-builder-sistema"><option value="">Todos</option></select></label>
+          <label>Piezas<select id="cmm-builder-cantidad"><option value="">Cualquier cantidad</option></select></label>
+        </div>
+      </div>
+      <p id="cmm-builder-carga" role="status"></p>
+      <button class="cmm-builder-primario" data-cmm-builder="tutorial">Aprender en una partida guiada</button>
+      <details class="cmm-builder-ruta"><summary>Controles de la partida</summary><section>
+        <p>Arrastra cada pieza hasta su silueta. Se encaja al soltarla cerca. Arrastra el fondo para orbitar. Esc cancela un ajuste en curso.</p>
+        <button data-cmm-builder="cmm-practica-libre">Practicar sin vidas ni monedas</button>
+        <div class="cmm-builder-ajustes">
+          <label><input id="cmm-builder-reducir" type="checkbox"> Reducir movimiento</label>
+          <label>Sensibilidad de cámara<select id="cmm-builder-sensibilidad"><option value="0.6">Baja</option><option value="1">Normal</option><option value="1.5">Alta</option></select></label>
+          <label>Tamaño del texto<select id="cmm-builder-texto"><option value="1">Normal</option><option value="1.15">Grande</option><option value="1.3">Muy grande</option></select></label>
+        </div>
+      </section></details>
+      <details id="cmm-builder-campana" class="cmm-builder-ruta"><summary>Campaña, desafío diario y logros</summary><div id="cmm-builder-rutas"></div></details>
+      <details class="cmm-builder-ruta">
+        <summary>Examen práctico de ensamblaje</summary>
+        <section>
+          <p>Evaluación educativa interna de ensamblaje. No otorga certificación profesional.</p>
+          <div class="cmm-builder-ajustes">
+            <label>Región<select id="cmm-builder-examen-region"><option value="">Todas</option></select></label>
+            <label>Sistema<select id="cmm-builder-examen-sistema"><option value="">Todos</option></select></label>
+            <label>Cantidad<input id="cmm-builder-examen-cantidad" type="number" min="2" max="25" value="3"></label>
+            <label>Segundos<input id="cmm-builder-examen-tiempo" type="number" min="30" max="900" value="120"></label>
+            <label>Dificultad<select id="cmm-builder-examen-nivel"><option value="0">Principiante</option><option value="1">Intermedio</option><option value="2">Avanzado</option><option value="3">Experto</option></select></label>
+            <label><input id="cmm-builder-examen-ayuda" type="checkbox"> Permitir una pista de nombre</label>
+          </div>
+          <button data-cmm-builder="cmm-examen-iniciar">Preparar examen</button>
+          <p id="cmm-builder-examen-aviso" role="status"></p><p id="cmm-builder-examen-historial"></p>
+        </section>
+      </details>
+      <details id="cmm-builder-docente" class="cmm-builder-ruta">
+        <summary>Editor docente</summary>
+        <section>
+          <div class="cmm-builder-ajustes">
+            <label>Misiones guardadas<select id="cmm-builder-docente-lista"><option value="">Nueva misión</option></select></label>
+            <label>Nombre<input id="cmm-builder-docente-nombre" maxlength="70"></label>
+            <label>Dificultad<select id="cmm-builder-docente-nivel"><option value="0">Principiante</option><option value="1">Intermedio</option><option value="2">Avanzado</option><option value="3">Experto</option></select></label>
+            <label>Pistas máximas<input id="cmm-builder-docente-pistas" type="number" min="0" max="4" value="0"></label>
+          </div>
+          <label class="cmm-builder-campo">Instrucciones<textarea id="cmm-builder-docente-instrucciones" maxlength="300" rows="2"></textarea></label>
+          <div class="cmm-builder-ajustes">
+            <label>Buscar estructura<input id="cmm-builder-docente-buscar" list="cmm-builder-docente-inventario" placeholder="Nombre o ID de pieza"></label>
+            <datalist id="cmm-builder-docente-inventario"></datalist>
+            <button data-cmm-builder="cmm-docente-requerida">Añadir pieza para encajar</button>
+            <button data-cmm-builder="cmm-docente-referencia">Añadir referencia fija</button>
+          </div>
+          <label class="cmm-builder-campo">IDs que se deben encajar<input id="cmm-builder-docente-requeridas" placeholder="Separa los IDs con comas"></label>
+          <label class="cmm-builder-campo">IDs de referencias fijas<input id="cmm-builder-docente-fijas" placeholder="Separa los IDs con comas"></label>
+          <div class="cmm-builder-grupo">
+            <button data-cmm-builder="cmm-docente-guardar">Guardar</button><button data-cmm-builder="cmm-docente-vista">Previsualizar</button>
+            <button data-cmm-builder="cmm-docente-jugar">Jugar guardada</button><button data-cmm-builder="cmm-docente-duplicar">Duplicar</button>
+            <button data-cmm-builder="cmm-docente-eliminar">Eliminar</button><button data-cmm-builder="cmm-docente-exportar">Exportar JSON</button>
+          </div>
+          <label class="cmm-builder-campo">Importar archivo JSON<input id="cmm-builder-docente-archivo" type="file" accept=".json,application/json"></label>
+          <p id="cmm-builder-docente-aviso" role="status"></p>
+        </section>
+      </details>
+      <div id="cmm-builder-retos" class="cmm-builder-retos"></div>
+      <p class="cmm-builder-credito">Geometría de BodyParts3D · DBCLS · CC BY 4.0</p>
+    </section>
+    <section id="cmm-builder-partida" class="cmm-oculto">
+      <div id="cmm-builder-lienzo">
+        <div id="cmm-builder-guia" class="cmm-oculto" aria-live="polite"><strong id="cmm-builder-guia-paso"></strong><span id="cmm-builder-guia-texto"></span></div>
+        <div id="cmm-builder-reticula" class="cmm-oculto" aria-hidden="true"></div>
+      </div>
+      <aside class="cmm-builder-objetivos cmm-panel">
+        <details open><summary>Objetivos</summary><p id="cmm-builder-objetivo"></p><ul id="cmm-builder-lista"></ul></details>
+        <div class="cmm-builder-grupo">
+          <button data-cmm-builder="encuadrar">Ver tablero</button>
+          <button data-cmm-builder="vista-frente">Vista frontal</button>
+          <button data-cmm-builder="reconstruir" class="cmm-oculto">Empezar reconstrucción</button>
+          <button data-cmm-builder="solucion">Ver montaje un momento</button>
+          <button data-cmm-builder="separar" class="cmm-oculto">Separar piezas</button>
+          <button data-cmm-builder="ensamblar" class="cmm-oculto">Ensamblar todo</button>
+          <button data-cmm-builder="repetir" class="cmm-oculto">Reiniciar</button>
+          <button data-cmm-builder="resultado" class="cmm-oculto">Ver resultado</button>
+          <button data-cmm-builder="deshacer" title="Ctrl + Z">Deshacer</button>
+          <button data-cmm-builder="rehacer" title="Ctrl + Shift + Z">Rehacer</button>
+        </div>
+      </aside>
+      <aside class="cmm-builder-inspector cmm-panel">
+        <details open>
+          <summary>Pieza seleccionada</summary>
+          <p id="cmm-builder-seleccion">Selecciona una pieza en el tablero o la bandeja.</p>
+          <fieldset id="cmm-builder-manipulacion" disabled>
+            <legend>Ajusta la pieza</legend>
+            <div class="cmm-builder-grupo" role="group" aria-label="Herramienta">
+              <button data-cmm-builder-herramienta="arrastre" aria-pressed="true">Arrastrar</button><button data-cmm-builder-herramienta="translate" aria-pressed="false">Mover</button>
+            </div>
+            <button data-cmm-builder="enfocar-pieza">Enfocar pieza</button>
+            <details id="cmm-builder-ajuste-fino">
+              <summary>Ajuste fino</summary>
+              <label>Eje<select id="cmm-builder-eje"><option value="libre">Libre</option><option value="x">X</option><option value="y">Y</option><option value="z">Z</option></select></label>
+              <div class="cmm-builder-grupo" role="group" aria-label="Profundidad">
+                <button data-cmm-builder="acercar">Acercar</button><button data-cmm-builder="alejar">Alejar</button>
+              </div>
+              <label>Profundidad relativa<input id="cmm-builder-profundidad" type="range" min="-100" max="100" value="0" step="1"></label>
+            </details>
+            <button data-cmm-builder="encajar">Comprobar</button>
+            <button data-cmm-builder="restablecer">Restablecer pieza</button>
+            <button data-cmm-builder="pista">Pista</button>
+          </fieldset>
+        </details>
+        <div class="cmm-builder-encaje"><span id="cmm-builder-encaje-pos"></span></div>
+        <p id="cmm-builder-aviso" role="status"></p>
+      </aside>
+      <div class="cmm-builder-bandeja cmm-panel">
+        <div class="cmm-builder-grupo"><strong>Bandeja</strong><span id="cmm-builder-disponibles"></span></div>
+        <div id="cmm-builder-fichas" aria-label="Piezas disponibles"></div>
+        <div id="cmm-builder-paginas" class="cmm-builder-grupo cmm-oculto">
+          <button data-cmm-builder="cmm-pagina-anterior">Anterior</button>
+          <span id="cmm-builder-pagina" aria-live="polite"></span>
+          <button data-cmm-builder="cmm-pagina-siguiente">Siguiente</button>
+        </div>
+      </div>
+      <section id="cmm-builder-paso" class="cmm-panel cmm-oculto" aria-label="Estado del desafío"></section>
+      <p class="cmm-builder-atajos">Arrastra el fondo para orbitar · Arrastra la pieza hasta su silueta · Rueda para acercar</p>
+    </section>
+  </div>
+</dialog>
+
+<script type="module" src="js/cmm-principal.js"></script>
+</body>
+</html>

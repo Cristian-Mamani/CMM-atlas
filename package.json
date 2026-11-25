@@ -1,0 +1,33 @@
+{
+  "name": "cmm-atlas-anatomico",
+  "version": "1.0.0",
+  "description": "Atlas anatomico 3D de escritorio con modo de estudio y examen",
+  "type": "module",
+  "main": "principal.cjs",
+  "scripts": {
+    "start": "electron .",
+    "dist": "powershell.exe -NoLogo -NoProfile -File herramientas/cmm-empaquetar-windows.ps1"
+  },
+  "dependencies": {
+    "three": "0.169.0"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "pe.upeu.cmmatlas",
+    "productName": "Atlas Anatomico CMM",
+    "directories": { "output": "salida" },
+    "files": [
+      "principal.cjs", "index.html", "estilos.css", "js/**/*", "datos/**/*", "THIRD-PARTY-NOTICES.md",
+      {
+        "from": "node_modules/three/examples/jsm/controls",
+        "to": "node_modules/three/examples/jsm/controls",
+        "filter": ["OrbitControls.js", "TransformControls.js"]
+      }
+    ],
+    "extraResources": [{ "from": "licencias", "to": "licencias" }],
+    "win": { "target": "dir" }
+  }
+}
